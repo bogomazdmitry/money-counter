@@ -46,6 +46,7 @@ async def count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
     try:
         message_text = update.message.text.strip().split()[0]
+        logging.info(f"Count money with {message_text}")
         amount = float(message_text)
         if chat_id in chat_balances:
             chat_balances[chat_id] -= amount
