@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 import logging
 from dotenv import load_dotenv
 from telegram import ForceReply, Update
@@ -97,7 +98,7 @@ app.add_handler(CommandHandler("get_current_balance", get_current_balance))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, count))
 
 if WEB_HOOK_HOST:
-    app.bot.set_webhook(WEB_HOOK_HOST)
-    app.run_webhook(port=5000, listen="0.0.0.0")
+    app.bot.set_webhook(WEB_HOOK_HOST, allowed_updates=Update.ALL_TYPES)
+    app.run_webhook(port=5000, listen="0.0.0.0", webhook_url=WEB_HOOK_HOST)
 else:
     app.run_polling(allowed_updates=Update.ALL_TYPES)
