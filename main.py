@@ -87,4 +87,4 @@ if WEB_HOOK_HOST == '':
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 else:
     WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/webhook/{TELEGRAM_BOT_KEY}'
-    app.run_webhook(webhook_url=WEB_HOOK_PATH)
+    app.run_webhook(webhook_url=WEB_HOOK_PATH, port=5000, listen="0.0.0.0")
