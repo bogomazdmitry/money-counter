@@ -1,8 +1,11 @@
 import os
+import json
 import logging
 from dotenv import load_dotenv
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+
+from state import get_balance, update_balance
 
 # Enable logging
 logging.basicConfig(
@@ -51,29 +54,28 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Count money."""
-    chat_data = context.chat_data
+    chat_id = update.message.chat_id
 
     try:
         message_text = update.message.text.strip().split()[0]
         logging.info(f"Count money with {message_text}")
         amount = float(message_text)
-        if 'balance' in chat_data:
-            chat_data['balance'] -= amount
-        else:
-            chat_data['balance'] = -amount
-        await update.message.reply_text(f"Counted {amount}. Current balance is {chat_data['balance']}.")
+        current_balance = await get_balance(context, chat_id)
+        new_balance = current_balance - amount
+        await update_balance(context, chat_id, new_balance)
+        await update.message.reply_text(f"Counted {amount}. Current balance is {new_balance}.")
     except ValueError:
         await update.message.reply_text("Please send a valid number.")
 
 async def set_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Set current balance."""
-    chat_data = context.chat_data
+    chat_id = update.message.chat_id
 
     message_text = update.message.text.split(' ', 1)
     if len(message_text) == 2:
         try:
             balance = float(message_text[1])
-            chat_data['balance'] = balance
+            await update_balance(context, chat_id, balance)
             await update.message.reply_text(f"Current balance set to {balance}.")
         except ValueError:
             await update.message.reply_text("Please send a valid number.")
@@ -82,9 +84,8 @@ async def set_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def get_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get current balance."""
-    chat_data = context.chat_data
-
-    balance = chat_data.get('balance', 0.0)
+    chat_id = update.message.chat_id
+    balance = await get_balance(context, chat_id)
     await update.message.reply_text(f"Current balance is {balance}.")
 
 app.add_handler(CommandHandler("start", start))
@@ -95,8 +96,8 @@ app.add_handler(CommandHandler("get_current_balance", get_current_balance))
 # on non command i.e message - echo the message on Telegram
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, count))
 
-if WEB_HOOK_HOST == '':
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+if WEB_HOOK_HOST:
+    app.bot.set_webhook(WEB_HOOK_HOST)
+    app.run_webhook(port=5000, listen="0.0.0.0")
 else:
-    WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/{TELEGRAM_BOT_KEY}'
-    app.run_webhook(port=5000, listen="0.0.0.0", webhook_url=WEB_HOOK_PATH)
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
