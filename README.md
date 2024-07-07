@@ -23,4 +23,4 @@ Counted 1.0. Current balance is 0.0.
 
 1. Typical render web server
 2. Setup TELEGRAM_BOT_KEY and WEB_HOOK_HOST env variables
-2. GET request to `https://api.telegram.org/bot{TELEGRAM_BOT_KEY}/setWebhook?url={WEB_HOOK_HOST}`
+2. GET request to `https://api.telegram.org/bot{TELEGRAM_BOT_KEY}/setWebhook?url={WEB_HOOK_HOST}` (it is automatic process now)
