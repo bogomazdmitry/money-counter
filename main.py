@@ -13,6 +13,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 load_dotenv()
 
+
 # Check for necessary environment variables
 def check_env_variables():
     if 'TELEGRAM_BOT_KEY' not in os.environ:
@@ -21,15 +22,13 @@ def check_env_variables():
 check_env_variables()
 
 TELEGRAM_BOT_KEY = os.getenv("TELEGRAM_BOT_KEY")
+WEB_HOOK_HOST = os.getenv("WEB_HOOK_HOST")
 app = Application.builder().token(TELEGRAM_BOT_KEY).build()
-
-logger = logging.getLogger("uvicorn.error")
 
 # In-memory storage for chat balances
 chat_balances = {}
 
-# Define a few command handlers. These usually take the two arguments update and
-# context.
+# Define a few command handlers. These usually take the two arguments update and context.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
@@ -46,7 +45,7 @@ async def count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Count money."""
     chat_id = update.effective_chat.id
     try:
-        message_text = update.message.text.trim().split()[0]
+        message_text = update.message.text.strip().split()[0]
         amount = float(message_text)
         if chat_id in chat_balances:
             chat_balances[chat_id] -= amount
@@ -62,7 +61,7 @@ async def set_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE
     message_text = update.message.text.split(' ', 1)
     if len(message_text) == 2:
         try:
-            balance = float(message_text[0])
+            balance = float(message_text[1])
             chat_balances[chat_id] = balance
             await update.message.reply_text(f"Current balance set to {balance}.")
         except ValueError:
@@ -84,4 +83,8 @@ app.add_handler(CommandHandler("get_current_balance", get_current_balance))
 # on non command i.e message - echo the message on Telegram
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, count))
 
-app.run_polling(allowed_updates=Update.ALL_TYPES)
+if WEB_HOOK_HOST == '':
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+else:
+    WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/webhook/{TELEGRAM_BOT_KEY}'
+    app.run_webhook(webhook_url=WEB_HOOK_PATH)
