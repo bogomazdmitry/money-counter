@@ -1,6 +1,6 @@
 import os
-from dotenv import load_dotenv
 import logging
+from dotenv import load_dotenv
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -13,7 +13,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 load_dotenv()
 
-
 # Check for necessary environment variables
 def check_env_variables():
     if 'TELEGRAM_BOT_KEY' not in os.environ:
@@ -24,9 +23,6 @@ check_env_variables()
 TELEGRAM_BOT_KEY = os.getenv("TELEGRAM_BOT_KEY")
 WEB_HOOK_HOST = os.getenv("WEB_HOOK_HOST")
 app = Application.builder().token(TELEGRAM_BOT_KEY).build()
-
-# In-memory storage for chat balances
-chat_balances = {}
 
 # Define a few command handlers. These usually take the two arguments update and context.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -43,27 +39,29 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Count money."""
-    chat_id = update.effective_chat.id
+    chat_data = context.chat_data
+
     try:
         message_text = update.message.text.strip().split()[0]
         logging.info(f"Count money with {message_text}")
         amount = float(message_text)
-        if chat_id in chat_balances:
-            chat_balances[chat_id] -= amount
+        if 'balance' in chat_data:
+            chat_data['balance'] -= amount
         else:
-            chat_balances[chat_id] = -amount
-        await update.message.reply_text(f"Counted {amount}. Current balance is {chat_balances[chat_id]}.")
+            chat_data['balance'] = -amount
+        await update.message.reply_text(f"Counted {amount}. Current balance is {chat_data['balance']}.")
     except ValueError:
         await update.message.reply_text("Please send a valid number.")
 
 async def set_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Set current balance."""
-    chat_id = update.effective_chat.id
+    chat_data = context.chat_data
+
     message_text = update.message.text.split(' ', 1)
     if len(message_text) == 2:
         try:
             balance = float(message_text[1])
-            chat_balances[chat_id] = balance
+            chat_data['balance'] = balance
             await update.message.reply_text(f"Current balance set to {balance}.")
         except ValueError:
             await update.message.reply_text("Please send a valid number.")
@@ -72,8 +70,9 @@ async def set_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def get_current_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get current balance."""
-    chat_id = update.effective_chat.id
-    balance = chat_balances.get(chat_id, 0.0)
+    chat_data = context.chat_data
+
+    balance = chat_data.get('balance', 0.0)
     await update.message.reply_text(f"Current balance is {balance}.")
 
 app.add_handler(CommandHandler("start", start))
@@ -87,5 +86,6 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, count))
 if WEB_HOOK_HOST == '':
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 else:
-    WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/webhook/{TELEGRAM_BOT_KEY}'
-    app.run_webhook(webhook_url=WEB_HOOK_PATH, port=5000, listen="0.0.0.0")
+    # WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/webhook/{TELEGRAM_BOT_KEY}'
+    app.bot.set_webhook(url=WEB_HOOK_HOST)
+    app.run_webhook(port=5000, listen="0.0.0.0")
