@@ -29,13 +29,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
+        rf"Hi {user.mention_html()}! Welcome to the Balance Bot.",
         reply_markup=ForceReply(selective=True),
+    )
+    await update.message.reply_text(
+        "I can help you keep track of your balance in this chat. "
+        "Use /help to see the available commands."
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
-    await update.message.reply_text("Help!")
+    help_text = (
+        "Available commands:\n"
+        "/start - Welcome message and basic information.\n"
+        "/help - Show this help message.\n"
+        "/set_current_balance <amount> - Set the current balance to the specified amount.\n"
+        "/get_current_balance - Get the current balance.\n"
+        "Simply send a message with a number to count that amount and update the balance."
+    )
+    await update.message.reply_text(help_text)
 
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Count money."""
