@@ -86,6 +86,5 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, count))
 if WEB_HOOK_HOST == '':
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 else:
-    # WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/webhook/{TELEGRAM_BOT_KEY}'
-    app.bot.set_webhook(url=WEB_HOOK_HOST)
-    app.run_webhook(port=5000, listen="0.0.0.0")
+    WEB_HOOK_PATH = f'{WEB_HOOK_HOST}/{TELEGRAM_BOT_KEY}'
+    app.run_webhook(port=5000, listen="0.0.0.0", webhook_url=WEB_HOOK_PATH)
