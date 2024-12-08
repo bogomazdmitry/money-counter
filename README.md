@@ -1,8 +1,17 @@
 # Money counter bot
 
-Bot for storing balance and count current balance
+Bot for storing balance for some balances to manage your money periodically and more manually.
 
-Bot: @MoneyCounterHelperBot
+You can add bot to any chat or send direct messages. Editing messages doesn't work for now.
+
+Bot: [@MoneyCounterHelperBot](https://t.me/MoneyCounterHelperBot)
+
+My workflow with money:
+1. Every month reset all balances.
+2. I have some balance types: budget_foods_week_1, budget_foods_week_2, ...3, ...4, cat, ...
+3. When I buy something, I send message to chat.
+4. Check in the end my result, manual analyzing.
+
 
 Example:
 
