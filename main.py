@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-from state import change_limit_for_type, get_balance_info, reset_limits_for_chat, spend_balance_for_type, upsert_balance_type
+from state import change_limit_for_type, delete_balance_type, get_balance_info, reset_limits_for_chat, spend_balance_for_type, upsert_balance_type
 
 # Enable logging
 logging.basicConfig(
@@ -50,6 +50,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/get_all_balance_info - Get full info about balance.\n"
         "/upsert_balance <limit> <type> - Set the current balance to the specified limit.\n"
         "/change_limit <limit> <type> - Change limit for balance.\n"
+        "/delete_balance <type> - Delete balance with type.\n"
         "/reset_limits - Reset all balances.\n"
         "Simply send a message with a number to count that amount and update the balance."
     )
@@ -64,8 +65,8 @@ async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYP
     if balance_info:
         result_string = "Balance info:\n"
         for type, info in balance_info.items():
-            if info is object and 'limit' in info and 'balance' in info:
-                result_string += f"{type}: {info['balance']}/{info['limit']}\n"
+            if isinstance(info, dict) and 'limit' in info and 'balance' in info:
+                result_string += f"{type}: {info['balance']} / {info['limit']}\n"
         await update.message.reply_text(result_string)
     else:
         await update.message.reply_text("No balances found.")
@@ -107,6 +108,21 @@ async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         await update.message.reply_text(f"No balance found for {type}.")
 
+async def delete_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Delete balance."""
+    logging.info(f"Delete balance for chat {update.message.chat_id}")
+    chat_id = update.message.chat_id
+    args = update.message.text.strip().split()[1:]
+    if len(args) != 1:
+        await update.message.reply_text("Please send one argument: type.")
+        return
+    type = args[0]
+    result = await delete_balance_type(context, chat_id, type)
+    if result:
+        await update.message.reply_text(f"Balance for {type} deleted.")
+    else:
+        await update.message.reply_text(f"No balance found for {type}.")
+
 async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Reset limits."""
     logging.info(f"Reset limits for chat {update.message.chat_id}")
@@ -118,7 +134,7 @@ async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
         result_string = "Old balances:\n"
         for type, info in result['old'].items():
-            result_string += f"{type}: {info['balance']}/{info['limit']}\n"
+            result_string += f"{type}: {info['balance']} / {info['limit']}\n"
         result_string += "\nBalances reset."
     else:
         result_string = "No balances found."
@@ -149,6 +165,7 @@ app.add_handler(CommandHandler("get_all_balance_info", get_all_balance_info))
 app.add_handler(CommandHandler("upsert_balance", upsert_balance))
 app.add_handler(CommandHandler("change_limit", change_limit))
 app.add_handler(CommandHandler("reset_limits", reset_limits))
+app.add_handler(CommandHandler("delete_balance", delete_balance))
 
 # on non command i.e message - echo the message on Telegram
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, spend))

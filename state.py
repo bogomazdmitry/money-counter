@@ -69,6 +69,16 @@ async def spend_balance_for_type(context: ContextTypes.DEFAULT_TYPE, chat_id: in
     await _update_data_from_pinned_messages(context, chat_id, data)
     return new_balance
 
+# Function to delete balance type. Returns True if balance was deleted, False otherwise
+async def delete_balance_type(context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str) -> bool:
+    data = await _get_data_from_pinned_messages(context, chat_id)
+    if data is None:
+        return False
+    if type not in data:
+        return False
+    del data[type]
+    await _update_data_from_pinned_messages(context, chat_id, data)
+    return True
 
 # Function to reset all balances. Return old and new data
 async def reset_limits_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> object:
