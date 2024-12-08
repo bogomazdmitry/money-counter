@@ -64,7 +64,8 @@ async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYP
     if balance_info:
         result_string = "Balance info:\n"
         for type, info in balance_info.items():
-            result_string += f"{type}: {info['balance']}/{info['limit']}\n"
+            if info is object and 'limit' in info and 'balance' in info:
+                result_string += f"{type}: {info['balance']}/{info['limit']}\n"
         await update.message.reply_text(result_string)
     else:
         await update.message.reply_text("No balances found.")
