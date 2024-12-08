@@ -56,6 +56,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     await update.message.reply_text(help_text)
 
+def print_to_string_balance_info(balance_info):
+    all_limit = 0
+    all_balance = 0
+    result_string = ''
+    for type, info in balance_info.items():
+        if isinstance(info, dict) and 'balance' in info and 'limit' in info:
+            result_string += f"{type}: {info['balance']} / {info['limit']}\n"
+            all_limit += info['limit']
+            all_balance += info['balance']
+    result_string += f"\nTotal: {all_balance} / {all_limit}"
+    return result_string
+
 # Send all balance info to chat with formatted version, like as <Type>: <balance>/<limit>
 async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get all balance info."""
@@ -63,10 +75,7 @@ async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = update.message.chat_id
     balance_info = await get_balance_info(context, chat_id)
     if balance_info:
-        result_string = "Balance info:\n"
-        for type, info in balance_info.items():
-            if isinstance(info, dict) and 'limit' in info and 'balance' in info:
-                result_string += f"{type}: {info['balance']} / {info['limit']}\n"
+        result_string = f"Balance info:\n{print_to_string_balance_info(balance_info)}"
         await update.message.reply_text(result_string)
     else:
         await update.message.reply_text("No balances found.")
@@ -130,12 +139,9 @@ async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     result = await reset_limits_for_chat(context, chat_id)
     if result:
         if 'error' in result:
-            await update.message.reply_text(result['error'])
-            return
-        result_string = "Old balances:\n"
-        for type, info in result['old'].items():
-            result_string += f"{type}: {info['balance']} / {info['limit']}\n"
-        result_string += "\nBalances reset."
+            result_string = result['error']
+        else:
+            result_string = f"Old balances:\n{print_to_string_balance_info(result['old'])}\nBalances reset."
     else:
         result_string = "No balances found."
     await update.message.reply_text(result_string)

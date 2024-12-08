@@ -11,6 +11,8 @@ Example:
 Balance info:
 balance1: 16.0/16.0
 balance2: 14.0/19.0
+
+Total: 35.0 / 35.0
 ```
 
 ```
@@ -31,8 +33,10 @@ Balance for balance1 deleted.
 ```
 /reset_limits
 Old balances:
-balance1: 16.0/16.0
+balance1: 15.0/16.0
 balance2: 19.0/19.0
+
+Total: 34.0 / 35.0
 
 Balances reset.
 ```
