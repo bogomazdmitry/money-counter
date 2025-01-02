@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import (
-    Application)
+from telegram.ext import Application
+
 
 async def reply_text(update: Update, app, message: str):
     if update.message is not None:
@@ -13,7 +13,6 @@ async def reply_text(update: Update, app, message: str):
     await app.bot.send_message(update.effective_chat.id, message)
 
 
-
 async def reply_html(update: Update, app: Application, message: str):
     if update.message is not None:
         await reply_html(update, app, message)
@@ -21,5 +20,6 @@ async def reply_html(update: Update, app: Application, message: str):
     if update.edited_message is not None:
         await update.edited_message.reply_html(message)
         return
-    await app.bot.send_message(update.effective_chat.id, message, parse_mode=ParseMode.HTML)
-
+    await app.bot.send_message(
+        update.effective_chat.id, message, parse_mode=ParseMode.HTML
+    )
