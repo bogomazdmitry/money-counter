@@ -1,26 +1,39 @@
 import os
-import json
-import asyncio
 import logging
+import uuid
+import contextvars
 from dotenv import load_dotenv
 from telegram import ForceReply, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-
-from state import change_limit_for_type, delete_balance_type, get_balance_info, reset_limits_for_chat, spend_balance_for_type, upsert_balance_type
-
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
 )
-# set higher logging level for httpx to avoid all GET and POST requests being logged
-logging.getLogger("httpx").setLevel(logging.WARNING)
+
+from state import (
+    change_limit_for_type,
+    delete_balance_type,
+    get_balance_info,
+    reset_limits_for_chat,
+    spend_balance_for_type,
+    upsert_balance_type,
+)
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 # Check for necessary environment variables
 def check_env_variables():
     if 'TELEGRAM_BOT_KEY' not in os.environ:
-        raise ValueError("TELEGRAM_BOT_KEY not set in environment variables")
+        raise ValueError("TELEGRAM_BOT_KEY is not set in environment variables")
 
 check_env_variables()
 
@@ -28,21 +41,28 @@ TELEGRAM_BOT_KEY = os.getenv("TELEGRAM_BOT_KEY")
 WEB_HOOK_HOST = os.getenv("WEB_HOOK_HOST")
 app = Application.builder().token(TELEGRAM_BOT_KEY).build()
 
-# Define a few command handlers. These usually take the two arguments update and context.
+# Define command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
+    """Send a welcome message when the /start command is issued."""
+    logger.info(f"/start command received from user {update.effective_user.id}")
     user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}! Welcome to the Balance Bot.",
-        reply_markup=ForceReply(selective=True),
-    )
-    await update.message.reply_text(
-        "I can help you keep track of your balance in this chat. "
-        "Use /help to see the available commands."
-    )
+    try:
+        await update.message.reply_html(
+            rf"Hi {user.mention_html()}! Welcome to the Balance Bot.",
+            reply_markup=ForceReply(selective=True),
+        )
+        logger.debug(f"Sent welcome message to user {user.id}")
+        await update.message.reply_text(
+            "I can help you keep track of your balance in this chat. "
+            "Use /help to see the available commands."
+        )
+        logger.debug(f"Sent help prompt to user {user.id}")
+    except Exception as e:
+        logger.error(f"Error in /start handler: {e}")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
+    """Send a help message when the /help command is issued."""
+    logger.info(f"/help command received from user {update.effective_user.id}")
     help_text = (
         "Available commands:\n"
         "/start - Welcome message and basic information.\n"
@@ -52,9 +72,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/change_limit <limit> <type> - Change limit for balance.\n"
         "/delete_balance <type> - Delete balance with type.\n"
         "/reset_limits - Reset all balances.\n"
-        "Simply send a message with a number to count that amount and update the balance."
+        "Simply send a message with a number and type to count that amount and update the balance."
     )
-    await update.message.reply_text(help_text)
+    try:
+        await update.message.reply_text(help_text)
+        logger.debug(f"Sent help text to user {update.effective_user.id}")
+    except Exception as e:
+        logger.error(f"Error in /help handler: {e}")
 
 def print_to_string_balance_info(balance_info):
     all_limit = 0
@@ -68,103 +92,154 @@ def print_to_string_balance_info(balance_info):
     result_string += f"\nTotal: {all_balance} / {all_limit}"
     return result_string
 
-# Send all balance info to chat with formatted version, like as <Type>: <balance>/<limit>
+# Handler for /get_all_balance_info command
 async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get all balance info."""
-    logging.info(f"Get all balance info for chat {update.message.chat_id}")
-    chat_id = update.message.chat_id
-    balance_info = await get_balance_info(context, chat_id)
-    if balance_info:
-        result_string = f"Balance info:\n{print_to_string_balance_info(balance_info)}"
-        await update.message.reply_text(result_string)
-    else:
-        await update.message.reply_text("No balances found.")
+    logger.info(f"/get_all_balance_info command received from chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
+    try:
+        balance_info = await get_balance_info(context, chat_id)
+        if balance_info:
+            result_string = f"Balance info:\n{print_to_string_balance_info(balance_info)}"
+            await update.message.reply_text(result_string)
+            logger.debug(f"Sent balance info to chat {chat_id}")
+        else:
+            await update.message.reply_text("No balances found.")
+            logger.debug(f"No balances found for chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Error in /get_all_balance_info handler: {e}")
+        await update.message.reply_text("An error occurred while fetching balance information.")
 
+# Handler for /upsert_balance command
 async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Upsert balance."""
-    chat_id = update.message.chat_id
-    logging.info(f"Upsert balance for chat {chat_id}")
+    logger.info(f"/upsert_balance command received in chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
     args = update.message.text.strip().split()[1:]
     if len(args) != 2:
-        await update.message.reply_text("Please send two arguments: type and limit.")
+        await update.message.reply_text("Please provide two arguments: <limit> <type>.")
+        logger.warning(f"Invalid arguments for /upsert_balance: {args}")
         return
     limit, type = args
     try:
         limit = float(limit)
     except ValueError:
         await update.message.reply_text("Limit must be a number.")
+        logger.warning(f"Invalid limit value: {limit}")
         return
-    await upsert_balance_type(context, chat_id, type, limit)
-    await update.message.reply_text(f"Balance for {type} set to {limit}.")
+    try:
+        await upsert_balance_type(context, chat_id, type, limit)
+        await update.message.reply_text(f"Balance for '{type}' set to {limit}.")
+        logger.info(f"Balance for '{type}' upserted to {limit} in chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Error in /upsert_balance handler: {e}")
+        await update.message.reply_text("An error occurred while setting the balance.")
 
+# Handler for /change_limit command
 async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Change limit."""
-    logging.info(f"Change limit for chat {update.message.chat_id}")
-    chat_id = update.message.chat_id
+    logger.info(f"/change_limit command received in chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
     args = update.message.text.strip().split()[1:]
     if len(args) != 2:
-        await update.message.reply_text("Please send two arguments: type and limit.")
+        await update.message.reply_text("Please provide two arguments: <new_limit> <type>.")
+        logger.warning(f"Invalid arguments for /change_limit: {args}")
         return
     limit, type = args
     try:
         limit = float(limit)
     except ValueError:
         await update.message.reply_text("Limit must be a number.")
+        logger.warning(f"Invalid limit value: {limit}")
         return
-    result = await change_limit_for_type(context, chat_id, type, limit)
-    if result:
-        await update.message.reply_text(f"Limit for {type} changed to {limit}.")
-    else:
-        await update.message.reply_text(f"No balance found for {type}.")
+    try:
+        result = await change_limit_for_type(context, chat_id, type, limit)
+        if result:
+            await update.message.reply_text(f"Limit for '{type}' changed to {limit}.")
+            logger.info(f"Limit for '{type}' changed to {limit} in chat {chat_id}")
+        else:
+            await update.message.reply_text(f"No balance found for '{type}'.")
+            logger.warning(f"No balance found for type '{type}' in chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Error in /change_limit handler: {e}")
+        await update.message.reply_text("An error occurred while changing the limit.")
 
+# Handler for /delete_balance command
 async def delete_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Delete balance."""
-    logging.info(f"Delete balance for chat {update.message.chat_id}")
-    chat_id = update.message.chat_id
+    logger.info(f"/delete_balance command received in chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
     args = update.message.text.strip().split()[1:]
     if len(args) != 1:
-        await update.message.reply_text("Please send one argument: type.")
+        await update.message.reply_text("Please provide one argument: <type>.")
+        logger.warning(f"Invalid arguments for /delete_balance: {args}")
         return
     type = args[0]
-    result = await delete_balance_type(context, chat_id, type)
-    if result:
-        await update.message.reply_text(f"Balance for {type} deleted.")
-    else:
-        await update.message.reply_text(f"No balance found for {type}.")
+    try:
+        result = await delete_balance_type(context, chat_id, type)
+        if result:
+            await update.message.reply_text(f"Balance for '{type}' deleted.")
+            logger.info(f"Balance for '{type}' deleted in chat {chat_id}")
+        else:
+            await update.message.reply_text(f"No balance found for '{type}'.")
+            logger.warning(f"No balance found for type '{type}' in chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Error in /delete_balance handler: {e}")
+        await update.message.reply_text("An error occurred while deleting the balance.")
 
+# Handler for /reset_limits command
 async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Reset limits."""
-    logging.info(f"Reset limits for chat {update.message.chat_id}")
-    chat_id = update.message.chat_id
-    result = await reset_limits_for_chat(context, chat_id)
-    if result:
-        if 'error' in result:
-            result_string = result['error']
+    logger.info(f"/reset_limits command received in chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
+    try:
+        result = await reset_limits_for_chat(context, chat_id)
+        if result:
+            if 'error' in result:
+                result_string = result['error']
+                logger.info(f"Reset limits result: {result_string}")
+            else:
+                old_info = print_to_string_balance_info(result['old'])
+                result_string = f"Old balances:\n{old_info}\nBalances have been reset to their limits."
+                logger.info(f"Balances reset successfully in chat {chat_id}")
         else:
-            result_string = f"Old balances:\n{print_to_string_balance_info(result['old'])}\nBalances reset."
-    else:
-        result_string = "No balances found."
-    await update.message.reply_text(result_string)
+            result_string = "No balances found."
+            logger.info(f"No balances to reset in chat {chat_id}")
+        await update.message.reply_text(result_string)
+    except Exception as e:
+        logger.error(f"Error in /reset_limits handler: {e}")
+        await update.message.reply_text("An error occurred while resetting the limits.")
 
+# Handler for spending money via messages
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Spend money."""
-    logging.info(f"Count money for chat {update.message.chat_id}")
-    chat_id = update.message.chat_id
-
+    logger.info(f"Spend command received in chat {update.effective_chat.id} with message: '{update.message.text.strip()}'")
+    chat_id = update.effective_chat.id
+    message_text = update.message.text.strip()
     try:
-        parts = update.message.text.strip().split()
-        amount_message_text = parts[0]
-        type = parts[1]
-        logging.info(f"Spend money with {amount_message_text}")
-        amount = float(amount_message_text)
+        parts = message_text.split()
+        if len(parts) != 2:
+            await update.message.reply_text("Please send a message with a number and type, e.g., '50 groceries'.")
+            logger.warning(f"Invalid message format: '{message_text}'")
+            return
+        amount_str, type = parts
+        amount = float(amount_str)
+        logger.debug(f"Parsed amount: {amount}, type: '{type}'")
         new_balance = await spend_balance_for_type(context, chat_id, type, amount)
         if new_balance is None:
-            await update.message.reply_text(f"No balance found for {type}.")
+            await update.message.reply_text(f"No balance found for '{type}', or insufficient funds.")
+            logger.warning(f"Failed to spend {amount} from type '{type}' in chat {chat_id}")
         else:
-            await update.message.reply_text(f"Spent {amount} for type {type}. Current balance is {new_balance}.")
+            await update.message.reply_text(f"Spent {amount} for '{type}'. Current balance is {new_balance}.")
+            logger.info(f"Spent {amount} from type '{type}'. New balance: {new_balance}")
     except ValueError:
-        await update.message.reply_text("Please send a valid number.")
+        await update.message.reply_text("Please send a valid number followed by the type, e.g., '50 groceries'.")
+        logger.warning(f"Invalid amount value in message: '{message_text}'")
+    except Exception as e:
+        logger.error(f"Error in spend handler: {e}")
+        await update.message.reply_text("An error occurred while processing your request.")
 
+# Register command handlers
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
 app.add_handler(CommandHandler("get_all_balance_info", get_all_balance_info))
@@ -176,8 +251,19 @@ app.add_handler(CommandHandler("delete_balance", delete_balance))
 # on non command i.e message - echo the message on Telegram
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, spend))
 
+# Run the bot
 if WEB_HOOK_HOST:
-    app.bot.set_webhook(WEB_HOOK_HOST, allowed_updates=Update.ALL_TYPES)
-    app.run_webhook(port=5000, listen="0.0.0.0", webhook_url=WEB_HOOK_HOST)
+    logger.info("Starting bot with webhook.")
+    try:
+        app.bot.set_webhook(WEB_HOOK_HOST, allowed_updates=Update.ALL_TYPES)
+        app.run_webhook(port=5000, listen="0.0.0.0", webhook_url=WEB_HOOK_HOST)
+        logger.info("Webhook is set and bot is running.")
+    except Exception as e:
+        logger.error(f"Failed to set webhook: {e}")
 else:
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("Starting bot with long polling.")
+    try:
+        app.run_polling(allowed_updates=Update.ALL_TYPES)
+        logger.info("Bot is polling for updates.")
+    except Exception as e:
+        logger.error(f"Failed to start polling: {e}")
