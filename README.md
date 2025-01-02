@@ -60,6 +60,15 @@ Custom JSON balance set successfully.
 Spent 1.0 for type balance1. Current balance is 15.0.
 ```
 
+## Install
+
+Python 3.13.1
+
+```
+pip install -r requirements.txt
+pre-commit install
+```
+
 ## Deploy
 
 1. Typical render web server

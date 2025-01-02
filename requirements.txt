@@ -1,4 +1,7 @@
-python-dotenv
-python-telegram-bot
+python-dotenv==1.0.1
+python-telegram-bot==21.9
 python-telegram-bot[webhooks]
-asyncio
+asyncio==3.4.3
+flake8==7.1.1
+pre-commit==4.0.1
+black==24.10.0
