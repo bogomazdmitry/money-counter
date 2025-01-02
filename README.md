@@ -79,11 +79,11 @@ pre-commit install
 
 /set_commands
 
-start - Welcome message and basic information.
-help - Show this help message.
-get_all_balance_info - Get full info about balance.
-upsert_balance - <limit> <type> Set the current balance to the specified limit.
-delete_balance - <type> Delete balance with type.
-change_limit - <limit> <type> Change limit for balance.
-reset_limits - Reset all balances.
+start - Welcome message and basic information. \
+help - Show this help message. \
+get_all_balance_info - Get full info about balance. \
+upsert_balance - <limit> <type> Set the current balance to the specified limit. \
+delete_balance - <type> Delete balance with type. \
+change_limit - <limit> <type> Change limit for balance. \
+reset_limits - Reset all balances. \
 set_custom_json_balance - <json> Set custom json balance.
