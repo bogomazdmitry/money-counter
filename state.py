@@ -150,6 +150,8 @@ async def reset_limits_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int
     old_data = data.copy()
     have_changes = False
     for type in data:
+        if 'balance' not in data[type] or 'limit' not in data[type]:
+            continue
         if data[type]['balance'] != data[type]['limit']:
             have_changes = True
             logger.debug(f"Resetting balance for type '{type}' from {data[type]['balance']} to {data[type]['limit']}.")
