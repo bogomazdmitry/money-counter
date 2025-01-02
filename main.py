@@ -95,6 +95,9 @@ def print_to_string_balance_info(balance_info):
 # Handler for /get_all_balance_info command
 async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get all balance info."""
+    if update.message is None:
+        logger.info(f"/get_all_balance_info command received in chat {update.effective_chat.id}, but update.message is None")
+        return
     logger.info(f"/get_all_balance_info command received from chat {update.effective_chat.id}")
     chat_id = update.effective_chat.id
     try:
@@ -113,6 +116,9 @@ async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYP
 # Handler for /upsert_balance command
 async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Upsert balance."""
+    if update.message is None:
+        logger.info(f"/upsert_balance command received in chat {update.effective_chat.id}, but update.message is None")
+        return
     logger.info(f"/upsert_balance command received in chat {update.effective_chat.id}")
     chat_id = update.effective_chat.id
     args = update.message.text.strip().split()[1:]
@@ -138,6 +144,9 @@ async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # Handler for /change_limit command
 async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Change limit."""
+    if update.message is None: 
+        logger.info(f"/change_limit command received in chat {update.effective_chat.id}, but update.message is None")
+        return
     logger.info(f"/change_limit command received in chat {update.effective_chat.id}")
     chat_id = update.effective_chat.id
     args = update.message.text.strip().split()[1:]
@@ -167,11 +176,11 @@ async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 # Handler for /delete_balance command
 async def delete_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Delete balance."""
-    logger.info(f"/delete_balance command received in chat {update.effective_chat.id}")
-    chat_id = update.effective_chat.id
     if update.message is None:
-        logger.info(f"/delete_balance is not new message, skip. chat_id: {update.effective_chat.id}")
+        logger.info(f"/delete_balance command received in chat {update.effective_chat.id}, but update.message is None")
         return
+    chat_id = update.effective_chat.id
+    logger.info(f"/delete_balance command received in chat {update.effective_chat.id}")
 
     args = update.message.text.strip().split()[1:]
     if len(args) != 1:
@@ -194,7 +203,9 @@ async def delete_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # Handler for /reset_limits command
 async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Reset limits."""
-    logger.info(f"/reset_limits command received in chat {update.effective_chat.id}")
+    if update.message is None:
+        logger.info(f"/reset_limits command received in chat {update.effective_chat.id}, but update.message is None")
+        return
     chat_id = update.effective_chat.id
     try:
         result = await reset_limits_for_chat(context, chat_id)
@@ -217,9 +228,12 @@ async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 # Handler for spending money via messages
 async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Spend money."""
-    logger.info(f"Spend command received in chat {update.effective_chat.id} with message: '{update.message.text.strip()}'")
-    chat_id = update.effective_chat.id
     if update.message is None:
+        logger.info(f"Spend command received in chat {update.effective_chat.id} with message: '{update.message.text.strip()}, but update.message is empty'")
+        return
+    logger.info(f"Spend command received in chat {update.effective_chat.id} with message: '{update.message.text.strip()}'")
+
+    chat_id = update.effective_chat.id
 
     message_text = update.message.text.strip()
     try:
@@ -254,7 +268,7 @@ app.add_handler(CommandHandler("change_limit", change_limit))
 app.add_handler(CommandHandler("reset_limits", reset_limits))
 app.add_handler(CommandHandler("delete_balance", delete_balance))
 
-# on non command i.e message - echo the message on Telegram
+# on non command i.e message - handle spending
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, spend))
 
 # Run the bot
