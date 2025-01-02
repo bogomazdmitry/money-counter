@@ -51,6 +51,11 @@ Balances reset.
 ```
 
 ```
+/set_custom_json_balance {"balance1": {"limit": 100, "balance": 50}}
+Custom JSON balance set successfully.
+```
+
+```
 1 balance1 feeding cat
 Spent 1.0 for type balance1. Current balance is 15.0.
 ```
@@ -72,3 +77,4 @@ upsert_balance - <limit> <type> Set the current balance to the specified limit.
 delete_balance - <type> Delete balance with type.
 change_limit - <limit> <type> Change limit for balance.
 reset_limits - Reset all balances.
+set_custom_json_balance - <json> Set custom json balance.

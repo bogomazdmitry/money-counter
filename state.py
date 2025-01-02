@@ -163,3 +163,9 @@ async def reset_limits_for_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int
     else:
         logger.info(f"No balances needed resetting.")
         return {'error': 'No changes.'}
+
+# Function for custom setting json as balances
+async def set_custom_json_balance(context: ContextTypes.DEFAULT_TYPE, chat_id: int, data: object):
+    logger.debug(f"Setting custom json balance in chat_id: {chat_id}")
+    await _update_data_from_pinned_messages(context, chat_id, data)
+    logger.info(f"Custom json balance set successfully.")

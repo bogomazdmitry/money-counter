@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 import uuid
@@ -11,15 +12,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-
-from state import (
-    change_limit_for_type,
-    delete_balance_type,
-    get_balance_info,
-    reset_limits_for_chat,
-    spend_balance_for_type,
-    upsert_balance_type,
-)
+import state
 import tg_helper
 
 logging.basicConfig(
@@ -72,6 +65,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/change_limit <limit> <type> - Change limit for balance.\n"
         "/delete_balance <type> - Delete balance with type.\n"
         "/reset_limits - Reset all balances.\n"
+        "/set_custom_json_balance <json> - Set custom json balance.\n"
         "Simply send a message with a number and type to count that amount and update the balance."
     )
     try:
@@ -101,7 +95,7 @@ async def get_all_balance_info(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info(f"/get_all_balance_info command received from chat {update.effective_chat.id}")
     chat_id = update.effective_chat.id
     try:
-        balance_info = await get_balance_info(context, chat_id)
+        balance_info = await state.get_balance_info(context, chat_id)
         if balance_info:
             result_string = f"Balance info:\n{print_to_string_balance_info(balance_info)}"
             await tg_helper.reply_text(update, app, result_string)
@@ -134,7 +128,7 @@ async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.warning(f"Invalid limit value: {limit}")
         return
     try:
-        await upsert_balance_type(context, chat_id, type, limit)
+        await state.upsert_balance_type(context, chat_id, type, limit)
         await tg_helper.reply_text(update, app, f"Balance for '{type}' set to {limit}.")
         logger.info(f"Balance for '{type}' upserted to {limit} in chat {chat_id}")
     except Exception as e:
@@ -144,7 +138,7 @@ async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # Handler for /change_limit command
 async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Change limit."""
-    if update.message is None: 
+    if update.message is None:
         logger.info(f"/change_limit command received in chat {update.effective_chat.id}, but update.message is None")
         return
     logger.info(f"/change_limit command received in chat {update.effective_chat.id}")
@@ -162,7 +156,7 @@ async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         logger.warning(f"Invalid limit value: {limit}")
         return
     try:
-        result = await change_limit_for_type(context, chat_id, type, limit)
+        result = await state.change_limit_for_type(context, chat_id, type, limit)
         if result:
             await tg_helper.reply_text(update, app, f"Limit for '{type}' changed to {limit}.")
             logger.info(f"Limit for '{type}' changed to {limit} in chat {chat_id}")
@@ -189,7 +183,7 @@ async def delete_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     type = args[0]
     try:
-        result = await delete_balance_type(context, chat_id, type)
+        result = await state.delete_balance_type(context, chat_id, type)
         if result:
             await tg_helper.reply_text(update, app, f"Balance for '{type}' deleted.")
             logger.info(f"Balance for '{type}' deleted in chat {chat_id}")
@@ -208,7 +202,7 @@ async def reset_limits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     chat_id = update.effective_chat.id
     try:
-        result = await reset_limits_for_chat(context, chat_id)
+        result = await state.reset_limits_for_chat(context, chat_id)
         if result:
             if 'error' in result:
                 result_string = result['error']
@@ -245,7 +239,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         amount_str, type = parts
         amount = float(amount_str)
         logger.debug(f"Parsed amount: {amount}, type: '{type}'")
-        new_balance = await spend_balance_for_type(context, chat_id, type, amount)
+        new_balance = await state.spend_balance_for_type(context, chat_id, type, amount)
         if new_balance is None:
             await tg_helper.reply_text(update, app, f"No balance found for '{type}', or insufficient funds.")
             logger.warning(f"Failed to spend {amount} from type '{type}' in chat {chat_id}")
@@ -259,6 +253,28 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Error in spend handler: {e}")
         await tg_helper.reply_text(update, app, "An error occurred while processing your request.")
 
+async def set_custom_json_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Set custom JSON balance."""
+    if update.message is None:
+        logger.info(f"/set_custom_json_balance command received in chat {update.effective_chat.id}, but update.message is empty")
+        return
+    chat_id = update.effective_chat.id
+    try:
+        json_str = update.message.text
+        json_str = json_str.replace("/set_custom_json_balance", "").strip()
+        try:
+            json_data = json.loads(json_str)
+        except json.JSONDecodeError:
+            await tg_helper.reply_text(update, app, "Please send a valid JSON string followed by the type, e.g., '{\"groceries\": {\"limit\": 100, \"balance\": 50}}'.")
+            logger.warning(f"Invalid JSON string: '{json_str}'")
+            return
+        await state.set_custom_json_balance(context, chat_id, json_data)
+        await tg_helper.reply_text(update, app, f"Custom JSON balance set successfully.")
+        logger.info(f"Custom JSON balance set in chat {chat_id}")
+    except Exception as e:
+        logger.error(f"Error in /set_custom_json_balance handler: {e}")
+        await tg_helper.reply_text(update, app, "An error occurred while processing your request.")
+
 # Register command handlers
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
@@ -267,6 +283,7 @@ app.add_handler(CommandHandler("upsert_balance", upsert_balance))
 app.add_handler(CommandHandler("change_limit", change_limit))
 app.add_handler(CommandHandler("reset_limits", reset_limits))
 app.add_handler(CommandHandler("delete_balance", delete_balance))
+app.add_handler(CommandHandler("set_custom_json_balance", set_custom_json_balance))
 
 # on non command i.e message - handle spending
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, spend))
