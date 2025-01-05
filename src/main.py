@@ -278,7 +278,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message_text = update.message.text.strip()
     try:
         parts = message_text.split()
-        if len(parts) != 2:
+        if len(parts) < 2:
             await tg_helper.reply_text(
                 update,
                 app,
@@ -286,7 +286,8 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             logger.warning(f"Invalid message format: '{message_text}'")
             return
-        amount_str, type = parts
+        amount_str = parts[0]
+        type = parts[1]
         amount = float(amount_str)
         logger.debug(f"Parsed amount: {amount}, type: '{type}'")
         new_balance = await state.spend_balance_for_type(context, chat_id, type, amount)
