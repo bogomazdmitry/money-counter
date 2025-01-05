@@ -6,7 +6,7 @@ services:
     plan: free
     autoDeploy: false
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: python src/main.py
     envVars:
       - key: TELEGRAM_BOT_KEY
         value: YOUR_TELEGRAM_BOT_KEY
