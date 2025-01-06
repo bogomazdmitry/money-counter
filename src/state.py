@@ -139,12 +139,11 @@ async def spend_balance_for_type(
     if type not in data:
         logger.warning(f"Type '{type}' not found in data.")
         return None
+    if spent_balance == 0:
+        logger.info(f"Balance '{type}' didn't change")
+        return data[type]["balance"] - spent_balance
+
     new_balance = data[type]["balance"] - spent_balance
-    if new_balance < 0:
-        logger.warning(
-            f"Insufficient balance for type '{type}'. Cannot spend {spent_balance}."
-        )
-        return None
     data[type]["balance"] = new_balance
     await _update_data_from_pinned_messages(context, chat_id, data)
     logger.info(f"New balance for type '{type}': {new_balance}")
