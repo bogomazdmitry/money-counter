@@ -121,6 +121,7 @@ async def change_limit_for_type(
     if type not in data:
         logger.warning(f"Type '{type}' not found in data.")
         return False
+    data[type]["balance"] = data[type]["balance"] - (limit - data[type]["limit"])
     data[type]["limit"] = limit
     await _update_data_from_pinned_messages(context, chat_id, data)
     logger.info(f"Limit for type '{type}' changed to {limit}.")

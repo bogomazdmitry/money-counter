@@ -87,7 +87,8 @@ def print_to_string_balance_info(balance_info):
             result_string += f"{type}: {info['balance']} / {info['limit']}\n"
             all_limit += info["limit"]
             all_balance += info["balance"]
-    result_string += f"\nTotal: {all_balance} / {all_limit}"
+    result_string += f"\nLeft: {all_balance} / {all_limit}"
+    result_string += f"\nSpent: {all_limit - all_balance} / {all_limit}"
     return result_string
 
 
