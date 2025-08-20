@@ -21,7 +21,8 @@ Balance info:
 balance1: 16.0/16.0
 balance2: 14.0/19.0
 
-Total: 35.0 / 35.0
+Left: 5.0 / 35.0
+Spent: 30.0 / 35.0
 ```
 
 ```
@@ -45,7 +46,8 @@ Old balances:
 balance1: 15.0/16.0
 balance2: 19.0/19.0
 
-Total: 34.0 / 35.0
+Left: 1.0 / 35.0
+Spent: 34.0 / 35.0
 
 Balances reset.
 ```
