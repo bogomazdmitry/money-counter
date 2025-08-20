@@ -2,14 +2,37 @@ import json
 import logging
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
+
+
+def _to_decimal(value):
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, (int, float)):
+        return Decimal(str(value))
+    if isinstance(value, str):
+        return Decimal(value)
+    return value
+
+
+def _normalize_data_to_decimals(data: object) -> object:
+    if not isinstance(data, dict):
+        return data
+    for type_key, info in list(data.items()):
+        if isinstance(info, dict):
+            if "limit" in info:
+                info["limit"] = _to_decimal(info["limit"])
+            if "balance" in info:
+                info["balance"] = _to_decimal(info["balance"])
+    return data
 
 
 # Function to get data from pinned messages
 async def _get_data_from_pinned_messages(
     context: ContextTypes.DEFAULT_TYPE, chat_id: int
-) -> float:
+) -> object:
     logger.debug(f"Fetching pinned messages for chat_id: {chat_id}")
     chat = await context.bot.get_chat(chat_id)
     pinned_message = chat.pinned_message
@@ -17,7 +40,8 @@ async def _get_data_from_pinned_messages(
         logger.debug("Pinned message found with expected text.")
         try:
             data_json = pinned_message.text.split("\n", 1)[1]
-            data = json.loads(data_json)
+            data = json.loads(data_json, parse_float=Decimal, parse_int=Decimal)
+            data = _normalize_data_to_decimals(data)
             logger.debug("Successfully parsed data from pinned message.")
             return data
         except (IndexError, ValueError, json.JSONDecodeError) as e:
@@ -34,7 +58,7 @@ async def _update_data_from_pinned_messages(
     logger.debug(f"Updating pinned message for chat_id: {chat_id}")
     chat = await context.bot.get_chat(chat_id)
     pinned_message = chat.pinned_message
-    message_text = f"Data for money-counter\n{json.dumps(data)}"
+    message_text = f"Data for money-counter\n{json.dumps(data, default=str)}"
 
     if pinned_message and "Data for money-counter" in pinned_message.text:
         logger.debug("Editing existing pinned message.")
@@ -65,7 +89,7 @@ async def _update_data_from_pinned_messages(
 # Function to get current balance from pinned message per type
 async def get_balance_info_by_type(
     context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str
-) -> float:
+) -> object:
     logger.debug(f"Getting balance info for type '{type}' in chat_id: {chat_id}")
     data = await _get_data_from_pinned_messages(context, chat_id)
     if data is None:
@@ -92,7 +116,7 @@ async def get_balance_info(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> 
 
 # Function to upsert balance type info with some limit
 async def upsert_balance_type(
-    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, limit: float
+    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, limit: Decimal
 ):
     logger.debug(
         f"Upserting balance type '{type}' with limit {limit} in chat_id: {chat_id}"
@@ -111,7 +135,7 @@ async def upsert_balance_type(
 
 # Function to change limit for type. Returns True if limit was changed, False otherwise
 async def change_limit_for_type(
-    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, limit: float
+    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, limit: Decimal
 ) -> bool:
     logger.debug(f"Changing limit for type '{type}' to {limit} in chat_id: {chat_id}")
     data = await _get_data_from_pinned_messages(context, chat_id)
@@ -130,8 +154,8 @@ async def change_limit_for_type(
 
 # Function to change balance for type. Returns new balance if changed, None otherwise
 async def spend_balance_for_type(
-    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, spent_balance: float
-) -> float:
+    context: ContextTypes.DEFAULT_TYPE, chat_id: int, type: str, spent_balance: Decimal
+) -> object:
     logger.debug(f"Spending {spent_balance} from type '{type}' in chat_id: {chat_id}")
     data = await _get_data_from_pinned_messages(context, chat_id)
     if data is None:
@@ -203,5 +227,6 @@ async def set_custom_json_balance(
     context: ContextTypes.DEFAULT_TYPE, chat_id: int, data: object
 ):
     logger.debug(f"Setting custom json balance in chat_id: {chat_id}")
+    data = _normalize_data_to_decimals(data)
     await _update_data_from_pinned_messages(context, chat_id, data)
     logger.info("Custom json balance set successfully.")

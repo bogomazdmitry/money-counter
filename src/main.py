@@ -10,6 +10,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from decimal import Decimal, InvalidOperation
 import state
 import tg_helper
 
@@ -79,8 +80,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def print_to_string_balance_info(balance_info):
-    all_limit = 0
-    all_balance = 0
+    all_limit = Decimal("0")
+    all_balance = Decimal("0")
     result_string = ""
     for type, info in balance_info.items():
         if isinstance(info, dict) and "balance" in info and "limit" in info:
@@ -143,8 +144,8 @@ async def upsert_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     limit, type = args
     try:
-        limit = float(limit)
-    except ValueError:
+        limit = Decimal(limit)
+    except (InvalidOperation, ValueError):
         await tg_helper.reply_text(update, app, "Limit must be a number.")
         logger.warning(f"Invalid limit value: {limit}")
         return
@@ -178,8 +179,8 @@ async def change_limit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     limit, type = args
     try:
-        limit = float(limit)
-    except ValueError:
+        limit = Decimal(limit)
+    except (InvalidOperation, ValueError):
         await tg_helper.reply_text(update, app, "Limit must be a number.")
         logger.warning(f"Invalid limit value: {limit}")
         return
@@ -289,7 +290,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
         amount_str = parts[0]
         type = parts[1]
-        amount = float(amount_str)
+        amount = Decimal(amount_str)
         logger.debug(f"Parsed amount: {amount}, type: '{type}'")
         new_balance = await state.spend_balance_for_type(context, chat_id, type, amount)
         if new_balance is None:
@@ -308,7 +309,7 @@ async def spend(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.info(
                 f"Spent {amount} from type '{type}'. New balance: {new_balance}"
             )
-    except ValueError:
+    except (InvalidOperation, ValueError):
         await tg_helper.reply_text(
             update,
             app,
@@ -336,7 +337,7 @@ async def set_custom_json_balance(
         json_str = update.message.text
         json_str = json_str.replace("/set_custom_json_balance", "").strip()
         try:
-            json_data = json.loads(json_str)
+            json_data = json.loads(json_str, parse_float=Decimal, parse_int=Decimal)
         except json.JSONDecodeError:
             await tg_helper.reply_text(
                 update,
