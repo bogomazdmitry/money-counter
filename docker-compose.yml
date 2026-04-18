@@ -3,5 +3,10 @@ services:
     build: .
     container_name: money-counter-bot
     restart: unless-stopped
+    volumes:
+      - bot-data:/app/data
     environment:
       TELEGRAM_BOT_KEY: ${TELEGRAM_BOT_KEY:?set TELEGRAM_BOT_KEY in .env}
+
+volumes:
+  bot-data:

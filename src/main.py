@@ -8,6 +8,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    PicklePersistence,
     filters,
 )
 from decimal import Decimal, InvalidOperation
@@ -33,7 +34,10 @@ check_env_variables()
 
 TELEGRAM_BOT_KEY = os.getenv("TELEGRAM_BOT_KEY")
 WEB_HOOK_HOST = os.getenv("WEB_HOOK_HOST")
-app = Application.builder().token(TELEGRAM_BOT_KEY).build()
+
+os.makedirs("/app/data", exist_ok=True)
+persistence = PicklePersistence(filepath="/app/data/bot_persistence.pickle")
+app = Application.builder().token(TELEGRAM_BOT_KEY).persistence(persistence).build()
 
 
 # Define command handlers
