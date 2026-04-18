@@ -6,6 +6,10 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
+# In-memory cache of data message IDs and data per chat
+_data_message_ids: dict[int, int] = {}
+_data_cache: dict[int, dict] = {}
+
 
 def _to_decimal(value):
     if isinstance(value, Decimal):
@@ -29,20 +33,29 @@ def _normalize_data_to_decimals(data: object) -> object:
     return data
 
 
-# Function to get data from pinned messages
+# Function to get data from the bot's data message
 async def _get_data_from_pinned_messages(
     context: ContextTypes.DEFAULT_TYPE, chat_id: int
 ) -> object:
-    logger.debug(f"Fetching pinned messages for chat_id: {chat_id}")
+    logger.debug(f"Fetching data message for chat_id: {chat_id}")
+
+    # Return cached data if available (survives pinned message changes)
+    if chat_id in _data_cache:
+        logger.debug("Returning cached data.")
+        return _data_cache[chat_id]
+
+    # First access or after restart: try pinned message
     chat = await context.bot.get_chat(chat_id)
     pinned_message = chat.pinned_message
-    if pinned_message and "Data for money-counter" in pinned_message.text:
+    if pinned_message and pinned_message.text and "Data for money-counter" in pinned_message.text:
         logger.debug("Pinned message found with expected text.")
+        _data_message_ids[chat_id] = pinned_message.message_id
         try:
             data_json = pinned_message.text.split("\n", 1)[1]
             data = json.loads(data_json, parse_float=Decimal, parse_int=Decimal)
             data = _normalize_data_to_decimals(data)
-            logger.debug("Successfully parsed data from pinned message.")
+            _data_cache[chat_id] = data
+            logger.debug("Successfully parsed and cached data from pinned message.")
             return data
         except (IndexError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"Error parsing pinned message: {e}")
@@ -51,16 +64,33 @@ async def _get_data_from_pinned_messages(
     return None
 
 
-# Function to update pinned message with data
+# Function to update data message (uses cached message_id, no get_chat needed)
 async def _update_data_from_pinned_messages(
     context: ContextTypes.DEFAULT_TYPE, chat_id: int, data: object
 ):
-    logger.debug(f"Updating pinned message for chat_id: {chat_id}")
-    chat = await context.bot.get_chat(chat_id)
-    pinned_message = chat.pinned_message
+    logger.debug(f"Updating data message for chat_id: {chat_id}")
+    _data_cache[chat_id] = data
     message_text = f"Data for money-counter\n{json.dumps(data, default=str)}"
 
-    if pinned_message and "Data for money-counter" in pinned_message.text:
+    # Use cached message_id to edit directly (works even if another msg is pinned)
+    if chat_id in _data_message_ids:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=_data_message_ids[chat_id],
+                text=message_text,
+                parse_mode=ParseMode.HTML,
+            )
+            logger.info("Data message updated via cached message_id.")
+            return
+        except Exception as e:
+            logger.warning(f"Failed to edit via cached message_id: {e}")
+            del _data_message_ids[chat_id]
+
+    # Fallback: check pinned message
+    chat = await context.bot.get_chat(chat_id)
+    pinned_message = chat.pinned_message
+    if pinned_message and pinned_message.text and "Data for money-counter" in pinned_message.text:
         logger.debug("Editing existing pinned message.")
         try:
             await context.bot.edit_message_text(
@@ -69,18 +99,20 @@ async def _update_data_from_pinned_messages(
                 text=message_text,
                 parse_mode=ParseMode.HTML,
             )
+            _data_message_ids[chat_id] = pinned_message.message_id
             logger.info("Pinned message updated successfully.")
         except Exception as e:
             logger.error(f"Failed to edit pinned message: {e}")
             raise
     else:
-        logger.debug("No existing pinned message found. Sending a new one.")
+        logger.debug("No existing data message found. Sending a new one.")
         try:
             sent_message = await context.bot.send_message(
                 chat_id, message_text, parse_mode=ParseMode.HTML
             )
+            _data_message_ids[chat_id] = sent_message.message_id
             await context.bot.pin_chat_message(chat_id, sent_message.message_id)
-            logger.info("New pinned message sent and pinned successfully.")
+            logger.info("New data message sent and pinned successfully.")
         except Exception as e:
             logger.error(f"Failed to send or pin message: {e}")
             raise
