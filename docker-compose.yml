@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    container_name: money-counter-bot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_KEY: ${TELEGRAM_BOT_KEY:?set TELEGRAM_BOT_KEY in .env}

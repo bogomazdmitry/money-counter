@@ -73,9 +73,11 @@ pre-commit install
 
 ## Deploy
 
-1. Typical render web server
-2. Setup TELEGRAM_BOT_KEY and WEB_HOOK_HOST env variables
-2. GET request to `https://api.telegram.org/bot{TELEGRAM_BOT_KEY}/setWebhook?url={WEB_HOOK_HOST}` (it is automatic process now)
+```bash
+docker compose up -d
+```
+
+Set `TELEGRAM_BOT_KEY` in `.env` file.
 
 ## Bot commands info for BotFather
 
