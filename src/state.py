@@ -77,7 +77,11 @@ async def _get_data_from_pinned_messages(
     # Fallback: try pinned message
     chat = await context.bot.get_chat(chat_id)
     pinned_message = chat.pinned_message
-    if pinned_message and pinned_message.text and "Data for money-counter" in pinned_message.text:
+    if (
+        pinned_message
+        and pinned_message.text
+        and "Data for money-counter" in pinned_message.text
+    ):
         logger.debug("Pinned message found with expected text.")
         try:
             data_json = pinned_message.text.split("\n", 1)[1]
@@ -119,7 +123,11 @@ async def _update_data_from_pinned_messages(
     # Fallback: check pinned message
     chat = await context.bot.get_chat(chat_id)
     pinned_message = chat.pinned_message
-    if pinned_message and pinned_message.text and "Data for money-counter" in pinned_message.text:
+    if (
+        pinned_message
+        and pinned_message.text
+        and "Data for money-counter" in pinned_message.text
+    ):
         logger.debug("Editing existing pinned message.")
         try:
             await context.bot.edit_message_text(
